@@ -1,4 +1,4 @@
-import type { LlamaContext } from "llama.rn";
+import type { LlamaContext } from "@pocketpalai/llama.rn";
 
 /** Web / iOS stub — Android uses llama-service.android.ts */
 export const DEFAULT_MODEL_FILENAME = "expense-llm.gguf";

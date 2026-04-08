@@ -1,4 +1,4 @@
-import type { LlamaContext } from "llama.rn";
+import type { LlamaContext } from "@pocketpalai/llama.rn";
 
 import { inferCategoryFromText } from "@/parsing/category-infer";
 import { extractDateFromSmsBody } from "@/parsing/regex-parse";

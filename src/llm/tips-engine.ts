@@ -1,4 +1,4 @@
-import type { LlamaContext } from "llama.rn";
+import type { LlamaContext } from "@pocketpalai/llama.rn";
 
 import type { AccountSummary, CategorySlice } from "@/db/transactions-repo";
 

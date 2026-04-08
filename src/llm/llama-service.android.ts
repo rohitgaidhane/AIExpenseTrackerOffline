@@ -1,5 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
-import { initLlama, type LlamaContext } from "llama.rn";
+import { initLlama, type LlamaContext } from "@pocketpalai/llama.rn";
 
 export const DEFAULT_MODEL_FILENAME = "expense-llm.gguf";
 
