@@ -10,35 +10,52 @@ export function getDefaultModelUri(): string {
   return `${base}models/${DEFAULT_MODEL_FILENAME}`;
 }
 
+// Android public Downloads folder — user can drop the .gguf here directly
+export function getDownloadsModelUri(): string {
+  return `file:///storage/emulated/0/Download/${DEFAULT_MODEL_FILENAME}`;
+}
+
 export async function ensureModelDir(): Promise<void> {
   const base = FileSystem.documentDirectory;
-  if (!base) {
-    return;
-  }
+  if (!base) return;
   await FileSystem.makeDirectoryAsync(`${base}models`, {
     intermediates: true,
   }).catch(() => {});
 }
 
+/**
+ * Finds the model in priority order:
+ * 1. App private storage  →  documentDirectory/models/expense-llm.gguf
+ * 2. Phone Downloads      →  /storage/emulated/0/Download/expense-llm.gguf
+ */
+export async function findModelUri(): Promise<string | null> {
+  const appPath = getDefaultModelUri();
+  const appInfo = await FileSystem.getInfoAsync(appPath);
+  if (appInfo.exists) return appPath;
+
+  const dlPath = getDownloadsModelUri();
+  const dlInfo = await FileSystem.getInfoAsync(dlPath);
+  if (dlInfo.exists) return dlPath;
+
+  return null;
+}
+
 export async function modelFileExists(): Promise<boolean> {
-  const info = await FileSystem.getInfoAsync(getDefaultModelUri());
-  return info.exists;
+  return (await findModelUri()) !== null;
 }
 
 /**
- * Load quantized `.gguf` from `documentDirectory/models/expense-llm.gguf`.
+ * Load quantized .gguf — checks app storage first, then Downloads folder.
  */
 export async function getOrInitLlama(): Promise<LlamaContext | null> {
-  if (activeContext) {
-    return activeContext;
-  }
-  if (!(await modelFileExists())) {
-    return null;
-  }
-  await ensureModelDir();
+  if (activeContext) return activeContext;
+
+  const modelUri = await findModelUri();
+  if (!modelUri) return null;
+
   try {
     activeContext = await initLlama({
-      model: getDefaultModelUri(),
+      model: modelUri,
       use_mlock: false,
       n_ctx: 2048,
       n_gpu_layers: 0,
@@ -51,9 +68,7 @@ export async function getOrInitLlama(): Promise<LlamaContext | null> {
 }
 
 export async function releaseLoadedLlama(): Promise<void> {
-  if (!activeContext) {
-    return;
-  }
+  if (!activeContext) return;
   try {
     await activeContext.release();
   } catch {

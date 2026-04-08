@@ -1,4 +1,3 @@
-/** Row shape for the `transactions` table (SQLite). */
 export type TransactionRow = {
   id: number;
   sms_id: string;
@@ -8,6 +7,8 @@ export type TransactionRow = {
   date: string;
   category: string | null;
   type: "credit" | "debit";
+  parse_source: "regex" | "llm";
+  account: string;
 };
 
 export type TransactionInsert = Omit<TransactionRow, "id">;

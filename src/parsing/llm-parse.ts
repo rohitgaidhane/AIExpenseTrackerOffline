@@ -4,7 +4,22 @@ import { inferCategoryFromText } from "@/parsing/category-infer";
 import { extractDateFromSmsBody } from "@/parsing/regex-parse";
 import type { ParsedTransaction } from "@/parsing/types";
 
-const SYSTEM_PROMPT = `Extract the expense amount, currency, merchant name, and date from the following SMS. Categorize the expense (e.g., Food, Transport, Utilities). Respond ONLY in valid JSON format with keys: 'amount', 'currency', 'merchant', 'date', 'category', 'type' (credit/debit). Do not include any other text.`;
+// More detailed prompt — LLM only sees messages regex couldn't parse,
+// so we push it harder on merchant extraction and category.
+const SYSTEM_PROMPT = `You are a financial SMS parser for Indian bank messages.
+Extract transaction data and respond ONLY in valid JSON with these exact keys:
+- "amount": number (e.g. 450.00)
+- "currency": string (default "INR")
+- "merchant": string or null (shop/service name, not bank name)
+- "date": string (YYYY-MM-DD format)
+- "category": one of: Food, Transport, Utilities, Shopping, Entertainment, Health, Education, Cash, Transfers, Other
+- "type": "debit" or "credit"
+
+Rules:
+- For "merchant": extract the actual payee/shop name. If UPI, extract the VPA handle name part.
+- For "category": use context clues from merchant name and SMS body.
+- If amount or type cannot be determined, still return valid JSON with amount: 0.
+- Do NOT include any explanation, markdown, or text outside the JSON object.`;
 
 type LlmJsonShape = {
   amount?: unknown;
@@ -15,11 +30,14 @@ type LlmJsonShape = {
   type?: unknown;
 };
 
+const VALID_CATEGORIES = new Set([
+  "Food", "Transport", "Utilities", "Shopping",
+  "Entertainment", "Health", "Education", "Cash", "Transfers", "Other",
+]);
+
 function normalizeIsoDate(raw: string, fallbackMs?: number): string {
   const t = raw.trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(t)) {
-    return t.slice(0, 10);
-  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
   return extractDateFromSmsBody(t, fallbackMs);
 }
 
@@ -31,9 +49,7 @@ export function parsedTransactionFromLlmText(
   const cleaned = text.replace(/```json\s*|```/gi, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    return null;
-  }
+  if (start === -1 || end === -1 || end <= start) return null;
 
   let data: LlmJsonShape;
   try {
@@ -49,9 +65,7 @@ export function parsedTransactionFromLlmText(
       : typeof amountRaw === "string"
         ? Number.parseFloat(amountRaw.replace(/,/g, ""))
         : NaN;
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
+  if (!Number.isFinite(amount) || amount <= 0) return null;
 
   const typeRaw = String(data.type ?? "").toLowerCase();
   const type = typeRaw.includes("credit")
@@ -59,9 +73,7 @@ export function parsedTransactionFromLlmText(
     : typeRaw.includes("debit")
       ? "debit"
       : null;
-  if (!type) {
-    return null;
-  }
+  if (!type) return null;
 
   const currency =
     typeof data.currency === "string" && data.currency.trim()
@@ -78,39 +90,31 @@ export function parsedTransactionFromLlmText(
       ? normalizeIsoDate(data.date, smsDateMs)
       : extractDateFromSmsBody(fallbackBody, smsDateMs);
 
-  const category =
-    typeof data.category === "string" && data.category.trim()
+  // Validate LLM category, fall back to our own inference if invalid
+  const llmCategory =
+    typeof data.category === "string" && VALID_CATEGORIES.has(data.category.trim())
       ? data.category.trim()
       : inferCategoryFromText(merchant, fallbackBody);
 
-  return {
-    amount,
-    currency,
-    merchant,
-    date: dateStr,
-    category,
-    type,
-  };
+  return { amount, currency, merchant, date: dateStr, category: llmCategory, type };
 }
 
-/** Layer 2: local GGUF model (llama.rn). */
+/** Layer 2: local GGUF model via llama.rn */
 export async function parseSmsWithLlama(
   context: LlamaContext,
   smsBody: string,
   smsDateMs?: number,
 ): Promise<ParsedTransaction | null> {
   const body = smsBody.trim();
-  if (!body) {
-    return null;
-  }
+  if (!body) return null;
 
   const result = await context.completion({
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: body },
     ],
-    n_predict: 220,
-    temperature: 0.2,
+    n_predict: 256,
+    temperature: 0.1, // lower = more deterministic JSON
     response_format: { type: "json_object" },
   });
 

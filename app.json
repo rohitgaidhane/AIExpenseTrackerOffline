@@ -3,13 +3,13 @@
     "name": "AIExpenseTrackerOffline",
     "slug": "AIExpenseTrackerOffline",
     "version": "1.0.0",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "aiexpensetrackeroffline",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "bundleIdentifier": "com.aiexpensetracker.offline"
     },
     "android": {
       "package": "com.aiexpensetracker.offline",
@@ -21,10 +21,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "READ_SMS",
         "READ_SMS"
-      ],
-      "package": "com.anonymous.AIExpenseTrackerOffline"
+      ]
     },
     "web": {
       "output": "static",
@@ -46,17 +44,31 @@
       "expo-font",
       "expo-web-browser",
       [
-        "llama.rn",
+        "expo-build-properties",
         {
-          "enableEntitlements": true,
-          "entitlementsProfile": "production",
-          "forceCxx20": true
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0",
+            "extraMavenRepos": [],
+            "packagingOptions": {
+              "pickFirst": ["**/libc++_shared.so"]
+            },
+            "cppFlags": "-std=c++20"
+          }
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e5da27dd-a323-4762-840c-e2f67cbdda59"
+      }
+    },
+    "owner": "rohitgaidhane"
   }
 }
