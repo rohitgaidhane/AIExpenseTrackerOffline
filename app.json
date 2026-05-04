@@ -20,9 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "READ_SMS"
-      ]
+      "permissions": ["READ_SMS"]
     },
     "web": {
       "output": "static",
