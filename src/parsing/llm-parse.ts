@@ -12,12 +12,13 @@ Extract transaction data and respond ONLY in valid JSON with these exact keys:
 - "currency": string (default "INR")
 - "merchant": string or null (shop/service name, not bank name)
 - "date": string (YYYY-MM-DD format)
-- "category": one of: Food, Transport, Utilities, Shopping, Entertainment, Health, Education, Cash, Transfers, Other
+- "category": string (use the most appropriate description from the SMS; if a specific app or service name is present, you may use that, otherwise use a broader category like "Food", "Transport", "Utilities", "Shopping", "Entertainment", "Health", "Education", "Cash", "Credit Card", "Transfers", "Other")
 - "type": "debit" or "credit"
 
 Rules:
 - For "merchant": extract the actual payee/shop name. If UPI, extract the VPA handle name part.
-- For "category": use context clues from merchant name and SMS body.
+- For "category": let the LLM decide the best label from the SMS text. Only fall back to app-side inference when the LLM cannot provide a non-empty category.
+- For credit card payments, prefer "Credit Card" when the SMS clearly describes a card payment.
 - If amount or type cannot be determined, still return valid JSON with amount: 0.
 - Do NOT include any explanation, markdown, or text outside the JSON object.`;
 
@@ -29,11 +30,6 @@ type LlmJsonShape = {
   category?: unknown;
   type?: unknown;
 };
-
-const VALID_CATEGORIES = new Set([
-  "Food", "Transport", "Utilities", "Shopping",
-  "Entertainment", "Health", "Education", "Cash", "Transfers", "Other",
-]);
 
 function normalizeIsoDate(raw: string, fallbackMs?: number): string {
   const t = raw.trim();
@@ -90,13 +86,20 @@ export function parsedTransactionFromLlmText(
       ? normalizeIsoDate(data.date, smsDateMs)
       : extractDateFromSmsBody(fallbackBody, smsDateMs);
 
-  // Validate LLM category, fall back to our own inference if invalid
+  // Primary category decision comes from the LLM; only fall back to local inference when blank.
   const llmCategory =
-    typeof data.category === "string" && VALID_CATEGORIES.has(data.category.trim())
+    typeof data.category === "string" && data.category.trim()
       ? data.category.trim()
       : inferCategoryFromText(merchant, fallbackBody);
 
-  return { amount, currency, merchant, date: dateStr, category: llmCategory, type };
+  return {
+    amount,
+    currency,
+    merchant,
+    date: dateStr,
+    category: llmCategory,
+    type,
+  };
 }
 
 /** Layer 2: local GGUF model via llama.rn */

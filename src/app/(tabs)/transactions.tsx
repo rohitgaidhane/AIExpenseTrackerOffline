@@ -1,13 +1,13 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useMemo, useState } from "react";
 import {
-    FlatList,
-    Platform,
-    Pressable,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    View,
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 
 import { listRecentTransactions } from "@/db/transactions-repo";
@@ -27,6 +27,13 @@ const CATEGORY_EMOJI: Record<string, string> = {
   Transfers: "↔️",
   Other: "📋",
   Uncategorized: "📋",
+  "Credit Card": "💳",
+  Swiggy: "🍽️",
+  Zomato: "🍕",
+  MedPlus: "💊",
+  Instamart: "🛒",
+  Jiomart: "🏪",
+  // Add more as needed
 };
 
 // ─── types for the flat list ────────────────────────────────────────────────
@@ -103,11 +110,19 @@ export default function TransactionsScreen() {
     setRows(list);
   }, [db]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try { await load(); } finally { setRefreshing(false); }
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const toggleCollapse = (date: string) => {
@@ -122,9 +137,7 @@ export default function TransactionsScreen() {
   const listData = useMemo<ListItem[]>(() => {
     const all = groupByDate(rows);
     return all.filter(
-      (item) =>
-        item.kind === "header" ||
-        !collapsed.has(item.tx.date),
+      (item) => item.kind === "header" || !collapsed.has(item.tx.date),
     );
   }, [rows, collapsed]);
 
@@ -135,7 +148,10 @@ export default function TransactionsScreen() {
         item.kind === "header" ? `hdr-${item.date}` : `tx-${item.tx.id}`
       }
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void onRefresh()}
+        />
       }
       contentContainerStyle={styles.listPad}
       ListEmptyComponent={

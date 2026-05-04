@@ -1,7 +1,4 @@
-import type {
-  SQLiteBindParams,
-  SQLiteRunResult,
-} from "expo-sqlite";
+import type { SQLiteBindParams, SQLiteRunResult } from "expo-sqlite";
 
 import type { AppDatabase } from "@/db/app-database";
 import { MIGRATION_V1, SCHEMA_VERSION } from "@/db/schema";
@@ -27,7 +24,10 @@ class WebMemoryDatabase implements AppDatabase {
     }
   }
 
-  async getFirstAsync<T>(source: string, params?: SQLiteBindParams): Promise<T | null> {
+  async getFirstAsync<T>(
+    source: string,
+    params?: SQLiteBindParams,
+  ): Promise<T | null> {
     const q = source.trim();
     if (/^PRAGMA\s+user_version\s*$/i.test(q)) {
       return { user_version: this.userVersion } as T;
@@ -63,9 +63,13 @@ class WebMemoryDatabase implements AppDatabase {
         date,
         category,
         type,
+        parse_source,
+        account,
       ] = bind as [
         string,
         number,
+        string,
+        string | null,
         string,
         string | null,
         string,
@@ -84,6 +88,8 @@ class WebMemoryDatabase implements AppDatabase {
         date: String(date),
         category: category == null ? null : String(category),
         type: type === "credit" ? "credit" : "debit",
+        parse_source: parse_source === "llm" ? "llm" : "regex",
+        account: account == null ? "Unknown" : String(account),
       };
       this.transactions.push(row);
       return { changes: 1, lastInsertRowId: row.id };
@@ -91,7 +97,10 @@ class WebMemoryDatabase implements AppDatabase {
     return { changes: 0, lastInsertRowId: 0 };
   }
 
-  async getAllAsync<T>(source: string, params?: SQLiteBindParams): Promise<T[]> {
+  async getAllAsync<T>(
+    source: string,
+    params?: SQLiteBindParams,
+  ): Promise<T[]> {
     if (source.includes("GROUP BY category")) {
       const [start, end] = normalizeBind(params) as [string, string];
       const map = new Map<string, number>();

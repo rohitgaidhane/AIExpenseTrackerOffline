@@ -1,7 +1,7 @@
 /** @jest-environment node */
 
-import { parseSmsWithRegex } from "@/parsing/regex-parse";
 import { parsedTransactionFromLlmText } from "@/parsing/llm-parse";
+import { parseSmsWithRegex } from "@/parsing/regex-parse";
 
 describe("parseSmsWithRegex (Indian banking fast-pass)", () => {
   it("parses debited Rs with date DD-MM-YYYY", () => {
@@ -46,5 +46,28 @@ describe("parsedTransactionFromLlmText", () => {
     expect(p!.amount).toBe(42.5);
     expect(p!.type).toBe("debit");
     expect(p!.category).toBe("Transport");
+  });
+
+  it("accepts LLM-specific categories like Swiggy and Credit Card", () => {
+    const text = `{"amount": 899.00, "currency": "INR", "merchant": "Swiggy", "date": "2026-05-01", "category": "Swiggy", "type": "debit"}`;
+    const p = parsedTransactionFromLlmText(text, "", undefined);
+    expect(p).not.toBeNull();
+    expect(p!.category).toBe("Swiggy");
+
+    const ccText = `{"amount": 4500.00, "currency": "INR", "merchant": "Credit Card Payment", "date": "2026-05-02", "category": "Credit Card", "type": "debit"}`;
+    const ccParsed = parsedTransactionFromLlmText(ccText, "", undefined);
+    expect(ccParsed).not.toBeNull();
+    expect(ccParsed!.category).toBe("Credit Card");
+  });
+
+  it("falls back to inference when LLM category is blank", () => {
+    const text = `{"amount": 299.00, "currency": "INR", "merchant": "Instamart", "date": "2026-05-03", "category": "", "type": "debit"}`;
+    const p = parsedTransactionFromLlmText(
+      text,
+      "Instamart order confirmed.",
+      undefined,
+    );
+    expect(p).not.toBeNull();
+    expect(p!.category).toBe("Instamart");
   });
 });
